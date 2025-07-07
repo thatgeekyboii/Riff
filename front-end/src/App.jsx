@@ -18,7 +18,7 @@ function App() {
             <Route path="/" element={<ProtectedLayout />}>
               <Route path="" element={<Home/>} />
               <Route path="post/:id" element={<h1>Home</h1>} />
-              <Route path="search" element={<h1>Home</h1>} />
+              <Route path="search" element={<Search />} />
             </Route>
           </Routes>
         </BrowserRouter>
