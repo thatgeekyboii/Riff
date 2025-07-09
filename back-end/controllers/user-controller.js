@@ -1,7 +1,8 @@
 const User = require("../models/user-model");
 const bcrypt = require("bcrypt"); // Corrected bcrypt import
 const jwt = require("jsonwebtoken");
-
+const formidable = require("formidable");
+const cloudinary = require("../config/cloudinary");
 const signUp = async (req, res) => {
   console.log("before calling route");
 
@@ -166,4 +167,83 @@ const followUser = async (req, res) => {
   }
 };
 
-module.exports = { signUp, signIn, userDetails, followUser };
+const updateProfile = async (req, res) => {
+  try {
+    const userExists = await User.findById(req.user._id);
+    if (!userExists) {
+      return res.status(400).json({ msg: "User does not exist !" });
+    }
+
+    const form = formidable({});
+
+    form.parse(req, async (err, fields, files) => {
+      if (err) {
+        return res
+          .status(400)
+          .json({ msg: "Error in formidable !", err: err.message });
+      }
+
+      const updateData = {}; // Object to hold fields for updating
+
+      // Update bio if provided in fields
+      if (fields.text) {
+        updateData.bio = fields.text;
+      }
+
+      // Check if image exists
+      if (files.media && files.media.filepath) {
+        try {
+          // Delete the previous image from Cloudinary if the user has one
+          if (userExists.public_id) {
+            await cloudinary.uploader.destroy(userExists.public_id);
+          }
+
+          // Upload new image to Cloudinary
+          const uploadImage = await cloudinary.uploader.upload(
+            files.media.filepath,
+            { folder: "Riff/Profiles" }
+          );
+          if (!uploadImage) {
+            return res.status(400).json({ msg: "Error while uploading image" });
+          }
+
+          // Set profilePic and public_id to update the user's profile picture
+          updateData.profilePic = uploadImage.secure_url;
+          updateData.public_id = uploadImage.public_id;
+        } catch (error) {
+          return res.status(400).json({
+            msg: "Error in image upload or deletion",
+            err: error.message,
+          });
+        }
+      }
+
+      // If there is anything to update, perform the update in a single query
+      if (Object.keys(updateData).length > 0) {
+        await User.findByIdAndUpdate(req.user._id, updateData, { new: true });
+      }
+
+      res.status(201).json({ msg: "Profile updated successfully!" });
+    });
+  } catch (err) {
+    res
+      .status(400)
+      .json({ msg: "Error in updating user details", err: err.message });
+  }
+};
+
+const searchUser = async (req, res) => {
+  try {
+  } catch (err) {
+    res.status(400).json({ msg: "Cannot search user", err: err.message });
+  }
+};
+
+module.exports = {
+  signUp,
+  signIn,
+  userDetails,
+  followUser,
+  updateProfile,
+  searchUser,
+};
